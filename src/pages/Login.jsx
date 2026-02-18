@@ -8,7 +8,7 @@ import { loginUser } from "../api/auth";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 
-import { getHardwareTip } from "../services/geminiService";
+import { TECH_TIPS } from "../data/techTips";
 
 function LoadingOverlay({ show, text = "Initializing..." }) {
   if (!show) return null;
@@ -67,25 +67,23 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    let alive = true;
+    const cached = sessionStorage.getItem("pcpm_tip");
 
-    (async () => {
-      try {
-        setTipLoading(true);
-        const t = await getHardwareTip();
-        if (!alive) return;
-        setTip(t || "Optimize airflow: front intake + rear exhaust.");
-      } catch {
-        if (!alive) return;
-        setTip("Optimize airflow: front intake + rear exhaust.");
-      } finally {
-        if (alive) setTipLoading(false);
-      }
-    })();
+    if (cached) {
+      setTip(cached);
+      setTipLoading(false);
+      return;
+    }
 
-    return () => {
-      alive = false;
-    };
+    const randomTip = TECH_TIPS[Math.floor(Math.random() * TECH_TIPS.length)];
+
+    const timer = setTimeout(() => {
+      setTip(randomTip);
+      setTipLoading(false);
+      sessionStorage.setItem("pcpm_tip", randomTip);
+    }, 500); // keeps your shimmer animation vibe
+
+    return () => clearTimeout(timer);
   }, []);
 
   const submit = async (e) => {
@@ -193,7 +191,6 @@ export default function Login() {
                   type="button"
                   className="hover:text-cyan-400 transition-colors font-medium"
                   disabled={loading}
-                  isLoading={loading}
                   onClick={() => navigate("/forgot-password")}
                 >
                   Lost Protocol?
