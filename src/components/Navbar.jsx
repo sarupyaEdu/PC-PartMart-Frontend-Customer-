@@ -304,7 +304,11 @@ export default function Navbar() {
         <div className="flex items-center gap-3">
           {/* LEFT: Brand + Home/Store */}
           <div className="flex items-center gap-6 shrink-0">
-            <Link to="/" className="flex items-center gap-2 shrink-0">
+            <Link
+              to="/"
+              className="flex items-center gap-2 shrink-0"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            >
               {/* ✅ Brand logo */}
               <div className="h-9 w-9 rounded-lg overflow-hidden border border-slate-800 bg-slate-900/40">
                 <img

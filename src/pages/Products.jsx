@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Link,
   useNavigate,
@@ -21,17 +21,6 @@ const PRICE_MAX = 200000;
 const PRICE_STEP = 10000;
 
 const formatINR = (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
-
-function useDebouncedValue(value, delay = 400) {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
-}
-
-const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
 
 const SortLabel = {
   "": "Featured",
@@ -98,15 +87,8 @@ export default function Products() {
       ? Number(maxParam)
       : PRICE_MAX;
 
-  // local UI typing (debounced) ONLY
-  const [searchInput, setSearchInput] = useState(urlSearch);
-  const debouncedSearch = useDebouncedValue(searchInput, 400);
-
-  // UI price dragging state (smooth slider) ONLY
   const [priceRangeUI, setPriceRangeUI] = useState([urlMinPrice, urlMaxPrice]);
 
-  // keep UI inputs in sync when URL changes (back/forward/reset)
-  useEffect(() => setSearchInput(urlSearch), [urlSearch]);
   useEffect(
     () => setPriceRangeUI([urlMinPrice, urlMaxPrice]),
     [urlMinPrice, urlMaxPrice],
@@ -161,6 +143,22 @@ export default function Products() {
   // mobile filters
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
+  // ✅ measure actual navbar height (works even if --nav-h is not set)
+  const [navH, setNavH] = useState(72); // fallback
+
+  useEffect(() => {
+    const measure = () => {
+      const nav =
+        document.querySelector("nav") || document.querySelector("header");
+      const h = nav?.getBoundingClientRect?.().height;
+      setNavH(h && h > 0 ? Math.ceil(h) : 72);
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
   const toggleCategory = (slug) => {
     const set = new Set(urlCategories);
 
@@ -191,12 +189,6 @@ export default function Products() {
     });
 
     if (resetPage) next.set("page", "1");
-
-    // ensure defaults exist for price
-    // if (!next.get("minPrice")) next.set("minPrice", String(PRICE_MIN));
-    // if (!next.get("maxPrice")) next.set("maxPrice", String(PRICE_MAX));
-    // if (!next.get("limit")) next.set("limit", String(urlLimit || 12));
-    // if (!next.get("page")) next.set("page", "1");
 
     setSearchParams(next, { replace: true });
   };
@@ -266,17 +258,6 @@ export default function Products() {
       toast.error("Wishlist update failed");
     }
   };
-
-  // -----------------------------
-  // When debouncedSearch changes, write to URL + reset page
-  // -----------------------------
-  useEffect(() => {
-    // only write if different to avoid loops
-    if (debouncedSearch !== urlSearch) {
-      setParams({ search: debouncedSearch }, { resetPage: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch]);
 
   // -----------------------------
   // Fetch products + categories whenever URL changes (truth)
@@ -500,45 +481,18 @@ export default function Products() {
   };
 
   const resetAll = () => {
-    setSearchInput("");
     setPriceRangeUI([PRICE_MIN, PRICE_MAX]);
     setMobileFiltersOpen(false);
-    setSearchParams({}, { replace: true }); // ✅ clears all query params => /products
+
+    const next = new URLSearchParams();
+    const s = searchParams.get("search");
+    if (s) next.set("search", s);
+
+    setSearchParams(next, { replace: true });
   };
 
   const Sidebar = (
     <div className="space-y-8 lg:sticky lg:top-24">
-      {/* Search */}
-      <div className="space-y-3">
-        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-          Search
-        </label>
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Search products..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 pl-11 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-600"
-          />
-          <svg
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-        </div>
-      </div>
-
-      {/* Sort & Page Size */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-3">
           <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">
@@ -597,8 +551,8 @@ export default function Products() {
               >
                 <div className="relative flex items-center">
                   <input
-                    type="checkbox"
-                    checked={checked}
+                    type="radio"
+                    name="availability"
                     onChange={() =>
                       setParams(
                         { availability: checked ? "" : opt.key },
@@ -838,27 +792,57 @@ export default function Products() {
   return (
     <div className="min-h-screen bg-slate-950 pb-20 selection:bg-indigo-500/30">
       {mobileFiltersOpen && (
-        <div className="lg:hidden fixed inset-0 z-50">
-          <button
-            type="button"
-            onClick={() => setMobileFiltersOpen(false)}
+        <div className="lg:hidden fixed inset-0 z-[9999]">
+          {/* backdrop */}
+          <div
             className="absolute inset-0 bg-black/60"
+            onClick={() => setMobileFiltersOpen(false)}
+            role="button"
+            tabIndex={0}
             aria-label="Close filters"
           />
-          <div className="absolute right-0 top-0 h-full w-[92%] max-w-sm bg-slate-950 border-l border-slate-800 p-5 overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <div className="text-white font-black tracking-tight text-xl">
-                Filters
+
+          {/* panel */}
+          <div
+            className="absolute right-0 bottom-0 w-[92%] max-w-sm bg-slate-950 border-l border-slate-800 shadow-2xl"
+            style={{
+              top: `calc(${navH}px + env(safe-area-inset-top, 0px))`,
+            }}
+          >
+            <div className="h-full overflow-y-auto overscroll-contain">
+              {/* sticky header */}
+              <div className="sticky top-0 z-50 bg-slate-950/95 backdrop-blur border-b border-slate-800 px-5 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-white font-black tracking-tight text-lg">
+                    Filters
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setMobileFiltersOpen(false)}
+                    className="p-2 rounded-xl border border-slate-800 text-slate-300 hover:text-white hover:border-indigo-500/50 transition-all"
+                    aria-label="Close filters"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6 6l12 12M6 18L18 6"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setMobileFiltersOpen(false)}
-                className="px-3 py-2 rounded-xl border border-slate-800 text-slate-300 hover:text-white hover:border-indigo-500/50 transition-all"
-              >
-                Close
-              </button>
+
+              {/* content */}
+              <div className="px-5 py-5 pb-8">{Sidebar}</div>
             </div>
-            {Sidebar}
           </div>
         </div>
       )}
