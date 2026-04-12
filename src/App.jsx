@@ -25,6 +25,7 @@ import About from "./pages/About";
 import ScrollToTop from "./components/ScrollToTop";
 import TicketDetails from "./pages/SupportDetails";
 import MyReviewPage from "./pages/MyReviewPage";
+import { Analytics } from "@vercel/analytics/react";
 
 export default function App() {
   return (
@@ -79,6 +80,7 @@ export default function App() {
         draggable
         theme="dark"
       />
+      <Analytics />
     </div>
   );
 }
