@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { Analytics } from "@vercel/analytics/react";
 import DefaultLayout from "./layouts/DefaultLayout";
 import FullWidthLayout from "./layouts/FullWidthLayout";
 import ReviewsPage from "./pages/ReviewsPage";
@@ -79,6 +80,7 @@ export default function App() {
         draggable
         theme="dark"
       />
+      <Analytics />
     </div>
   );
 }
